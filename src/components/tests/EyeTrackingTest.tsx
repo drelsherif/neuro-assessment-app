@@ -29,10 +29,11 @@ const EyeTrackingTest: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number | null>(null);
     const testTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    
+    const targetAnimationRef = useRef<number | null>(null); // Ref for target animation frame
+
     const predictWebcam = useCallback(() => {
         if (!videoRef.current || !canvasRef.current || !landmarker || !videoRef.current.srcObject) {
-            if (requestRef.current) requestRef.current = requestAnimationFrame(predictWebcam);
+            requestRef.current = requestAnimationFrame(predictWebcam);
             return;
         }
         const faceLandmarker = landmarker as FaceLandmarker;
@@ -64,12 +65,14 @@ const EyeTrackingTest: React.FC = () => {
             }
         }
         requestRef.current = requestAnimationFrame(predictWebcam);
-    }, [landmarker, isTestRunning, targetPosition]);
+    }, [landmarker, isTestRunning, targetPosition]); // Added landmarker here
     
     const handleStopTest = useCallback(() => {
         setIsTestRunning(false);
         setTimeLeft(0);
         if (testTimeoutRef.current) clearTimeout(testTimeoutRef.current);
+        if (targetAnimationRef.current) cancelAnimationFrame(targetAnimationRef.current);
+
 
         setGazeHistory(currentGazeHistory => {
             if (currentGazeHistory.length > 0) {
@@ -99,6 +102,7 @@ const EyeTrackingTest: React.FC = () => {
     }, []);
 
     const handleStartTest = () => {
+        // console.log("Starting Eye Tracking Test"); // DEBUG
         setGazeHistory([]);
         setTestResults(null);
         setChartData(null);
@@ -116,39 +120,44 @@ const EyeTrackingTest: React.FC = () => {
                 requestRef.current = requestAnimationFrame(predictWebcam);
                 setIsWebcamEnabled(true);
             }
-        } catch (err) {
-            console.error("Error accessing webcam:", err);
-        }
+        } catch (err) { console.error("Error accessing webcam:", err); }
     };
     
+    // Effect for animating the target
     useEffect(() => {
-        let animationFrameId: number;
         if (isTestRunning) {
             const animateTarget = () => {
-                const time = performance.now() / 3000;
-                setTargetPosition({ x: 0.5 + 0.4 * Math.cos(time), y: 0.5 + 0.4 * Math.sin(time) });
-                animationFrameId = requestAnimationFrame(animateTarget);
+                const time = performance.now() / 3000; // Controls speed of target
+                setTargetPosition({ x: 0.5 + 0.35 * Math.cos(time), y: 0.5 + 0.35 * Math.sin(time) }); // Controls radius
+                targetAnimationRef.current = requestAnimationFrame(animateTarget);
             };
-            animateTarget();
+            targetAnimationRef.current = requestAnimationFrame(animateTarget); // Start animation
+        } else {
+            if (targetAnimationRef.current) {
+                cancelAnimationFrame(targetAnimationRef.current); // Stop animation when test is not running
+            }
         }
-        return () => { cancelAnimationFrame(animationFrameId) };
+        return () => { 
+            if (targetAnimationRef.current) cancelAnimationFrame(targetAnimationRef.current);
+        };
     }, [isTestRunning]);
 
+    // Effect for countdown timer
     useEffect(() => {
         if (isTestRunning && timeLeft > 0) {
-            const timerId = setInterval(() => {
-                setTimeLeft(prevTime => Math.max(0, prevTime - 1));
-            }, 1000);
+            const timerId = setInterval(() => setTimeLeft(prevTime => Math.max(0, prevTime - 1)), 1000);
             return () => clearInterval(timerId);
         } else if (isTestRunning && timeLeft === 0) {
-            handleStopTest(); // Ensure test stops if timer reaches 0
+            handleStopTest();
         }
     }, [isTestRunning, timeLeft, handleStopTest]);
 
+    // Main cleanup effect
     useEffect(() => {
         return () => {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
             if (testTimeoutRef.current) clearTimeout(testTimeoutRef.current);
+            if (targetAnimationRef.current) cancelAnimationFrame(targetAnimationRef.current);
             if (videoRef.current?.srcObject) {
                 (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
             }
@@ -156,6 +165,7 @@ const EyeTrackingTest: React.FC = () => {
     }, []);
 
     return (
+        // JSX is the same as the last full version
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', width: '100%' }}>
             <div style={{ position: 'relative', width: '90vw', maxWidth: '640px', aspectRatio: '640 / 480', border: '2px solid #ccc', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
                 <video ref={videoRef} autoPlay playsInline style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />

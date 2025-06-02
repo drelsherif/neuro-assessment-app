@@ -10,7 +10,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 480;
-const TAP_THRESHOLD = 0.05;
+const TAP_THRESHOLD = 0.05; // You might need to adjust this based on testing
 const TEST_DURATION = 10000; // 10 seconds
 
 interface TapTestResults {
@@ -37,7 +37,7 @@ const FingerTapTest: React.FC = () => {
 
     const predictWebcam = useCallback(() => {
         if (!videoRef.current || !canvasRef.current || !landmarker || !videoRef.current.srcObject) {
-            if (requestRef.current) requestRef.current = requestAnimationFrame(predictWebcam);
+            requestRef.current = requestAnimationFrame(predictWebcam);
             return;
         }
         const handLandmarker = landmarker as HandLandmarker;
@@ -51,9 +51,11 @@ const FingerTapTest: React.FC = () => {
 
             if (isTestRunning && results.landmarks && results.landmarks.length > 0) {
                 const distance = calculateFingerTapDistance(results.landmarks[0]);
+                // console.log("Tap Distance:", distance); // DEBUG: Check distance
                 if (distance !== null) {
                     if (distance < TAP_THRESHOLD) {
                         if (!wasTapped) {
+                            // console.log("TAP DETECTED!"); // DEBUG
                             setTapTimestamps(prev => [...prev, performance.now()]);
                             setWasTapped(true);
                         }
@@ -64,7 +66,7 @@ const FingerTapTest: React.FC = () => {
             }
         }
         requestRef.current = requestAnimationFrame(predictWebcam);
-    }, [landmarker, isTestRunning, wasTapped]);
+    }, [landmarker, isTestRunning, wasTapped]); // Added landmarker here
 
     const handleStopTest = useCallback(() => {
         setIsTestRunning(false);
@@ -75,7 +77,6 @@ const FingerTapTest: React.FC = () => {
             if (currentTimestamps.length > 1) {
                 const analysis = analyzeTapData(currentTimestamps);
                 setTestResults(analysis);
-                
                 const intervals = [];
                 for (let i = 1; i < currentTimestamps.length; i++) {
                     intervals.push(currentTimestamps[i] - currentTimestamps[i - 1]);
@@ -83,24 +84,24 @@ const FingerTapTest: React.FC = () => {
                 setChartData({
                     labels: intervals.map((_, index) => `Interval ${index + 1}`),
                     datasets: [{
-                        label: 'Time Between Taps (ms)',
-                        data: intervals,
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1,
+                        label: 'Time Between Taps (ms)', data: intervals,
+                        borderColor: 'rgb(75, 192, 192)', tension: 0.1,
                     }]
                 });
             } else {
                 setTestResults({ totalTaps: currentTimestamps.length, tapsPerSecond: 0, averageTimeBetweenTaps: 0, consistency: 0 });
                 setChartData(null);
             }
-            return currentTimestamps; // Return unchanged for setTapTimestamps if no analysis
+            return currentTimestamps;
         });
     }, []);
     
     const handleStartTest = () => {
+        // console.log("Starting Finger Tap Test"); // DEBUG
         setTapTimestamps([]);
         setTestResults(null);
         setChartData(null);
+        setWasTapped(false); // Reset wasTapped state
         setIsTestRunning(true);
         setTimeLeft(TEST_DURATION / 1000);
         testTimeoutRef.current = setTimeout(handleStopTest, TEST_DURATION);
@@ -115,20 +116,15 @@ const FingerTapTest: React.FC = () => {
                 requestRef.current = requestAnimationFrame(predictWebcam);
                 setIsWebcamEnabled(true);
             }
-        } catch (err) {
-            console.error("Error accessing webcam:", err);
-            alert("Could not access webcam. Please ensure permissions are granted and try again.");
-        }
+        } catch (err) { console.error("Error accessing webcam:", err); }
     };
 
     useEffect(() => {
         if (isTestRunning && timeLeft > 0) {
-            const timerId = setInterval(() => {
-                setTimeLeft(prevTime => Math.max(0, prevTime - 1));
-            }, 1000);
+            const timerId = setInterval(() => setTimeLeft(prevTime => Math.max(0, prevTime - 1)), 1000);
             return () => clearInterval(timerId);
         } else if (isTestRunning && timeLeft === 0) {
-            handleStopTest(); // Ensure test stops if timer reaches 0
+            handleStopTest();
         }
     }, [isTestRunning, timeLeft, handleStopTest]);
     
@@ -143,6 +139,7 @@ const FingerTapTest: React.FC = () => {
     }, []);
 
     return (
+        // JSX is the same as the last full version
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', width: '100%' }}>
             <div style={{ position: 'relative', width: '90vw', maxWidth: '640px', aspectRatio: '640 / 480', border: '2px solid #ccc', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
                 <video ref={videoRef} autoPlay playsInline style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
