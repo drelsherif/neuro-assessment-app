@@ -44,22 +44,23 @@ const FingerTapTest: React.FC = () => {
     };
     
     // This function is now only responsible for enabling the webcam and starting the prediction loop
-    const enableWebcam = async () => {
-        if (!landmarker || isWebcamEnabled) return;
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                videoRef.current.onloadeddata = () => {
-                    requestRef.current = requestAnimationFrame(predictWebcam);
-                    setIsWebcamEnabled(true);
-                };
-            }
-        } catch (err) {
-            console.error("Error accessing webcam:", err);
-            alert("Could not access webcam. Please ensure permissions are granted and try again.");
+    // NEW, CORRECTED VERSION
+const enableWebcam = async () => {
+    if (!landmarker || isWebcamEnabled) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+
+            // FIX: Start the drawing loop and update state immediately.
+            // Do not wait for the onloadeddata event.
+            requestRef.current = requestAnimationFrame(predictWebcam);
+            setIsWebcamEnabled(true);
         }
-    };
+    } catch (err) {
+        console.error("Error accessing webcam:", err);
+    }
+};
 
     useEffect(() => { /* ...same timer effect... */ }, [isTestRunning, timeLeft]);
     

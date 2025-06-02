@@ -43,21 +43,23 @@ const EyeTrackingTest: React.FC = () => {
         testTimeoutRef.current = setTimeout(handleStopTest, TEST_DURATION);
     };
 
-    const enableWebcam = async () => {
-        if (!landmarker || isWebcamEnabled) return;
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                videoRef.current.onloadeddata = () => {
-                    requestRef.current = requestAnimationFrame(predictWebcam);
-                    setIsWebcamEnabled(true);
-                };
-            }
-        } catch (err) {
-            console.error("Error accessing webcam:", err);
+    // NEW, CORRECTED VERSION
+const enableWebcam = async () => {
+    if (!landmarker || isWebcamEnabled) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+
+            // FIX: Start the drawing loop and update state immediately.
+            // Do not wait for the onloadeddata event.
+            requestRef.current = requestAnimationFrame(predictWebcam);
+            setIsWebcamEnabled(true);
         }
-    };
+    } catch (err) {
+        console.error("Error accessing webcam:", err);
+    }
+};
     
     useEffect(() => { /* ...same target animation effect... */ }, [isTestRunning]);
     useEffect(() => { /* ...same timer effect... */ }, [isTestRunning, timeLeft]);
