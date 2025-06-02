@@ -171,9 +171,32 @@ const FingerTapTest: React.FC = () => {
                         <h3>Rhythm Analysis</h3>
                         <Line data={chartData} />
                     </div>
+                    
                 </div>
             )}
+        <div style={{
+                position: 'fixed',
+                bottom: '10px',
+                left: '10px',
+                background: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                padding: '10px',
+                borderRadius: '5px',
+                zIndex: 100,
+                fontSize: '12px',
+                textAlign: 'left'
+            }}>
+                <h4>Debug Info (Finger Tap):</h4>
+                <p>isLoading: {isLoading.toString()}</p>
+                <p>isWebcamEnabled: {isWebcamEnabled.toString()}</p>
+                <p>isTestRunning: {isTestRunning.toString()}</p>
+                <p>timeLeft: {timeLeft}</p>
+                <p>Tap Count: {tapTimestamps.length}</p>
+                <p>wasTapped (state): {wasTapped.toString()}</p>
+                {/* You could also try to display the last calculated distance here if you add another state for it */}
+            </div>
         </div>
     );
 };
+
 export default FingerTapTest;
