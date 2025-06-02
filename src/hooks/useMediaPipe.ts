@@ -4,8 +4,7 @@ import {
     HandLandmarker,
     FilesetResolver,
     FaceLandmarkerResult,
-    HandLandmarkerResult,
-    NormalizedLandmark
+    HandLandmarkerResult
 } from '@mediapipe/tasks-vision';
 
 export type MediaPipeModel = 'face' | 'hand';
@@ -57,7 +56,6 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
 
 export default useMediaPipe;
 
-// FIX: Added the missing drawFaceLandmarks function
 export const drawFaceLandmarks = (
     ctx: CanvasRenderingContext2D,
     results: FaceLandmarkerResult,
