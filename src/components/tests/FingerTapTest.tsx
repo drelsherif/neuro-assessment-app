@@ -10,7 +10,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 480;
-const TAP_THRESHOLD = 0.05;
+const TAP_THRESHOLD = 0.15;
 const TEST_DURATION = 10000; // 10 seconds
 
 interface TapTestResults {
