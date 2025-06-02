@@ -10,8 +10,8 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 480;
-// STARTING THRESHOLD - YOU WILL LIKELY NEED TO ADJUST THIS!
-const TAP_THRESHOLD = 0.1; // Increased starting point, but check debug output
+// YOU WILL LIKELY ADJUST THIS BASED ON THE "LIVE DISTANCE" YOU SEE
+const TAP_THRESHOLD = 0.08; // Let's try a value based on your 0.03 observation.
 const TEST_DURATION = 10000; // 10 seconds
 
 interface TapTestResults {
@@ -26,11 +26,11 @@ const FingerTapTest: React.FC = () => {
     const [isWebcamEnabled, setIsWebcamEnabled] = useState(false);
     const [isTestRunning, setIsTestRunning] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
-    const [wasTapped, setWasTapped] = useState(false);
+    const [wasTapped, setWasTapped] = useState(false); // True if fingers are currently "tapped"
     const [tapTimestamps, setTapTimestamps] = useState<number[]>([]);
     const [testResults, setTestResults] = useState<TapTestResults | null>(null);
     const [chartData, setChartData] = useState<any>(null);
-    const [debugDistance, setDebugDistance] = useState<number | null>(null); // For on-screen distance
+    const [debugDistance, setDebugDistance] = useState<number | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,28 +53,31 @@ const FingerTapTest: React.FC = () => {
 
             if (results.landmarks && results.landmarks.length > 0) {
                 const distance = calculateFingerTapDistance(results.landmarks[0]);
-                setDebugDistance(distance); // Update live distance for debugging
+                setDebugDistance(distance); 
 
                 if (isTestRunning) {
                     if (distance !== null) {
                         if (distance < TAP_THRESHOLD) {
-                            if (!wasTapped) {
+                            // This block means fingers are close enough to be considered a tap
+                            if (!wasTapped) { 
+                                // Only count if they weren't *already* tapped (prevents counting one long touch as multiple taps)
                                 setTapTimestamps(prev => [...prev, performance.now()]);
-                                setWasTapped(true);
+                                setWasTapped(true); // Mark as "currently tapped"
                             }
                         } else {
-                            setWasTapped(false);
+                            // Fingers are apart, reset wasTapped so the next time they come together it counts
+                            setWasTapped(false); 
                         }
                     } else {
-                         setWasTapped(false); // Reset if distance cannot be calculated
+                         setWasTapped(false); 
                     }
                 }
             } else {
-                setDebugDistance(null); // No landmarks, no distance
+                setDebugDistance(null); 
             }
         }
         requestRef.current = requestAnimationFrame(predictWebcam);
-    }, [landmarker, isTestRunning, wasTapped]); // Removed TAP_THRESHOLD from deps as it's a const
+    }, [landmarker, isTestRunning, wasTapped]); // wasTapped is important here
 
     const handleStopTest = useCallback(() => {
         setIsTestRunning(false);
@@ -162,7 +165,6 @@ const FingerTapTest: React.FC = () => {
                 {isTestRunning && <p>Test in progress...</p>}
             </div>
 
-            {/* VISUAL DEBUGGER - REMOVE LATER */}
             <div style={{
                 background: 'rgba(200,200,200,0.8)', padding: '10px', marginTop: '10px', borderRadius: '5px',
                 fontSize: '12px', textAlign: 'left', maxWidth: '640px', width: '90vw'
