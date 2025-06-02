@@ -144,41 +144,36 @@ const FingerTapTest: React.FC = () => {
     }, []);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', width: '100%' }}>
-            <div style={{ position: 'relative', width: '90vw', maxWidth: '640px', aspectRatio: '640 / 480', border: '2px solid #ccc', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
-                <video ref={videoRef} autoPlay playsInline style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
-                <canvas ref={canvasRef} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, transform: 'scaleX(-1)' }} />
-                <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: 'rgba(0,0,0,0.5)', color: 'white', padding: '10px 15px', borderRadius: '8px', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                    {isTestRunning ? `Time Left: ${timeLeft}` : (testResults ? "Test Finished" : (isWebcamEnabled ? "Ready" : "Waiting Webcam"))}
-                </div>
-                {isTestRunning && <h2 style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 10, background: 'rgba(255,255,255,0.8)', padding: '10px', borderRadius: '5px' }}>Taps: {tapTimestamps.length}</h2>}
-            </div>
-            <div className="card" style={{padding: '1rem'}}>
-                <p>Tap your index finger (like tapping a desk) clearly and consistently for 10 seconds.</p>
-                {!isWebcamEnabled && <button className="primary-button" onClick={enableWebcam} disabled={isLoading}>{isLoading ? "Loading Model..." : "Enable Webcam"}</button>}
-                {isWebcamEnabled && !isTestRunning && <button className="primary-button" onClick={handleStartTest}>Start 10 Second Test</button>}
-                {isTestRunning && <p>Test in progress...</p>}
-            </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', width: '100%' }}> {/* <<< MAIN WRAPPER DIV STARTS HERE */}
 
-            {/* VISUAL DEBUGGER - Focus on webcam enabling and predict loop */}
-            <div style={{
-                background: 'rgba(200,200,200,0.8)', padding: '10px', marginTop: '10px', borderRadius: '5px',
-                fontSize: '12px', textAlign: 'left', maxWidth: '640px', width: '90vw'
-            }}>
-                <h4>Debug Info (Finger Tap - Webcam & Loop):</h4>
-                <p>isLoading Model: {isLoading.toString()}</p>
-                <p>isWebcamEnabled (state): {isWebcamEnabled.toString()}</p>
-                <p>Predict Loop Actively Running: {debugPredictLoopRunning.toString()}</p>
-                <p>isTestRunning (state): {isTestRunning.toString()}</p>
-            </div>
+        {/* Video/Canvas Container div */}
+        <div style={{ position: 'relative', /* ... */ }}>
+            {/* ...video, canvas, timer, tap count... */}
+        </div>
 
-            {testResults && chartData && (
-                <div style={{ display: 'flex', gap: '2rem', width: '90%', maxWidth: '1000px', alignItems: 'stretch', marginTop: '1rem' }}>
-                    <ResultsVisualization title="Finger Tap Results" data={testResults} />
-                    <div className="card" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <h3>Rhythm Analysis</h3>
-                        <Line data={chartData} />
-                    </div>
+        {/* Controls Card div */}
+        <div className="card" style={{padding: '1rem'}}>
+            {/* ...buttons... */}
+        </div>
+
+        {/* Debug Info div */}
+        <div style={{ background: 'rgba(200,200,200,0.8)', /* ... */ }}>
+            {/* ...debug paragraphs... */}
+        </div>
+
+        {/* Results and Chart (This is where your line 183 from the error log is) */}
+        {testResults && chartData && (
+            <div style={{ display: 'flex', /* ... */ }}>
+                <ResultsVisualization title="Finger Tap Results" data={testResults} />
+                <div className="card" style={{ flexGrow: 1, /* ... */ }}>
+                    <h3>Rhythm Analysis</h3>
+                    <Line data={chartData} />
                 </div>
-            )}
+            </div>
+        )} {/* <<< This is line 183 from your error log, closing the conditional render */}
+
+    </div> // <<<< THIS IS VERY LIKELY THE MISSING CLOSING TAG for the main wrapper div
+);
+}; // This closes the FingerTapTest component function
+
 export default FingerTapTest;
