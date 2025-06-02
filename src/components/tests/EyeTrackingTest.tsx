@@ -46,14 +46,18 @@ const EyeTrackingTest: React.FC = () => {
 
         if (video.readyState >= 2 && ctx) {
             const results: FaceLandmarkerResult = faceLandmarker.detectForVideo(video, performance.now());
-            drawFaceLandmarks(ctx, results, canvas.width, canvas.height);
-
+            // Clear canvas and draw everything
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw the target dot first
             ctx.beginPath();
             ctx.arc(targetPosition.x * canvas.width, targetPosition.y * canvas.height, 15, 0, 2 * Math.PI);
             ctx.fillStyle = 'yellow';
             ctx.fill();
 
+            // Then draw landmarks and gaze dot
             if (results.faceLandmarks.length > 0) {
+                drawFaceLandmarks(ctx, results, canvas.width, canvas.height);
                 const gaze = calculateGazePosition(results.faceLandmarks[0]);
                 if (gaze.average) {
                     ctx.beginPath();
@@ -116,10 +120,9 @@ const EyeTrackingTest: React.FC = () => {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                videoRef.current.onloadeddata = () => {
-                    setIsWebcamEnabled(true);
-                    handleStartTest();
-                };
+                // FIX: Start the test immediately after the stream is assigned
+                setIsWebcamEnabled(true);
+                handleStartTest();
             }
         } catch (err) {
             console.error("Error accessing webcam:", err);

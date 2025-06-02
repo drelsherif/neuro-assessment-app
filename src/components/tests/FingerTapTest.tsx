@@ -85,7 +85,7 @@ const FingerTapTest: React.FC = () => {
             if (currentTimestamps.length > 1) {
                 const analysis = analyzeTapData(currentTimestamps);
                 setTestResults(analysis);
-                
+
                 const intervals = [];
                 for (let i = 1; i < currentTimestamps.length; i++) {
                     intervals.push(currentTimestamps[i] - currentTimestamps[i - 1]);
@@ -103,7 +103,7 @@ const FingerTapTest: React.FC = () => {
             return currentTimestamps;
         });
     }, []);
-    
+
     const handleStartTest = () => {
         setInstructionsVisible(false);
         setTapTimestamps([]);
@@ -115,17 +115,16 @@ const FingerTapTest: React.FC = () => {
         requestRef.current = requestAnimationFrame(predictWebcam);
         testTimeoutRef.current = setTimeout(handleStopTest, TEST_DURATION);
     };
-    
+
     const enableWebcamAndStart = async () => {
         if (!landmarker || isWebcamEnabled) return;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                videoRef.current.onloadeddata = () => {
-                    setIsWebcamEnabled(true);
-                    handleStartTest();
-                };
+                // FIX: Start the test immediately after the stream is assigned
+                setIsWebcamEnabled(true);
+                handleStartTest();
             }
         } catch (err) {
             console.error("Error accessing webcam:", err);
@@ -133,6 +132,7 @@ const FingerTapTest: React.FC = () => {
         }
     };
 
+    // Countdown timer effect
     useEffect(() => {
         if (isTestRunning && timeLeft > 0) {
             const timerId = setInterval(() => {
@@ -141,7 +141,8 @@ const FingerTapTest: React.FC = () => {
             return () => clearInterval(timerId);
         }
     }, [isTestRunning, timeLeft]);
-    
+
+    // Main cleanup effect
     useEffect(() => {
         return () => {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
