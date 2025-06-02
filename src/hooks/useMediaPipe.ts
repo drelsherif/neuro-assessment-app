@@ -5,6 +5,7 @@ import {
     FilesetResolver,
     FaceLandmarkerResult,
     HandLandmarkerResult
+    // NormalizedLandmark is not directly used in this file if only drawing functions use it
 } from '@mediapipe/tasks-vision';
 
 export type MediaPipeModel = 'face' | 'hand';
@@ -15,6 +16,7 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
 
     useEffect(() => {
         const createLandmarker = async () => {
+            setIsLoading(true); // Ensure loading state is true at the start
             try {
                 const vision = await FilesetResolver.forVisionTasks(
                     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
@@ -29,7 +31,7 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
                         runningMode: "VIDEO",
                         numHands: 2
                     });
-                } else {
+                } else { // 'face'
                     newLandmarker = await FaceLandmarker.createFromOptions(vision, {
                         baseOptions: {
                             modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
@@ -37,13 +39,13 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
                         },
                         runningMode: "VIDEO",
                         numFaces: 1,
-                        outputFaceBlendshapes: true,
-                        outputFacialTransformationMatrixes: true,
+                        outputFaceBlendshapes: true, // Important for some analyses
+                        outputFacialTransformationMatrixes: true, // Important for some analyses
                     });
                 }
                 setLandmarker(newLandmarker);
             } catch (e) {
-                console.error("Error initializing MediaPipe Landmarker:", e);
+                console.error(`Error initializing MediaPipe ${modelType} Landmarker:`, e);
             } finally {
                 setIsLoading(false);
             }
@@ -62,14 +64,14 @@ export const drawFaceLandmarks = (
     canvasWidth: number,
     canvasHeight: number
 ) => {
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    // No clearRect here, as EyeTrackingTest clears its own canvas before drawing target & landmarks
     if (results.faceLandmarks) {
-        results.faceLandmarks.forEach(landmarks => {
-            landmarks.forEach(landmark => {
+        results.faceLandmarks.forEach(landmarks => { // landmarks is an array of NormalizedLandmark
+            landmarks.forEach(landmark => { // landmark is a single NormalizedLandmark
                 const x = landmark.x * canvasWidth;
                 const y = landmark.y * canvasHeight;
                 ctx.beginPath();
-                ctx.arc(x, y, 1, 0, 2 * Math.PI);
+                ctx.arc(x, y, 1.5, 0, 2 * Math.PI); // Slightly larger dots
                 ctx.fillStyle = 'aqua';
                 ctx.fill();
             });
@@ -83,10 +85,10 @@ export const drawHandLandmarks = (
     canvasWidth: number,
     canvasHeight: number
 ) => {
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    if (results.landmarks) {
-        for (const landmarks of results.landmarks) {
-            landmarks.forEach(landmark => {
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight); // Clear canvas for hand tracking
+    if (results.landmarks) { // results.landmarks is an array of hand landmarks (each hand is an array of NormalizedLandmark)
+        for (const landmarks of results.landmarks) { // landmarks is for a single hand
+            landmarks.forEach(landmark => { // landmark is a single NormalizedLandmark
                 const x = landmark.x * canvasWidth;
                 const y = landmark.y * canvasHeight;
                 ctx.beginPath();
