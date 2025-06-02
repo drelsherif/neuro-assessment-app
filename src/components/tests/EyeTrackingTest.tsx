@@ -29,11 +29,11 @@ const EyeTrackingTest: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number | null>(null);
     const testTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const targetAnimationRef = useRef<number | null>(null); // Ref for target animation frame
+    const targetAnimationRef = useRef<number | null>(null);
 
     const predictWebcam = useCallback(() => {
         if (!videoRef.current || !canvasRef.current || !landmarker || !videoRef.current.srcObject) {
-            requestRef.current = requestAnimationFrame(predictWebcam);
+            if (requestRef.current !== null) requestRef.current = requestAnimationFrame(predictWebcam);
             return;
         }
         const faceLandmarker = landmarker as FaceLandmarker;
@@ -58,23 +58,25 @@ const EyeTrackingTest: React.FC = () => {
                     ctx.arc(gaze.average.x * canvas.width, gaze.average.y * canvas.height, 7, 0, 2 * Math.PI);
                     ctx.fillStyle = 'red';
                     ctx.fill();
-                    if (isTestRunning) {
+                    if (isTestRunning) { // Check if test is running
+                        // console.log('[EyeTrackingTest] predictWebcam - Test is running, adding to gazeHistory'); // DEBUG
                         setGazeHistory(prev => [...prev, { timestamp: performance.now(), target: targetPosition, gaze: gaze.average }]);
                     }
                 }
             }
         }
         requestRef.current = requestAnimationFrame(predictWebcam);
-    }, [landmarker, isTestRunning, targetPosition]); // Added landmarker here
+    }, [landmarker, isTestRunning, targetPosition]);
     
     const handleStopTest = useCallback(() => {
+        console.log('[EyeTrackingTest] handleStopTest called'); // DEBUG
         setIsTestRunning(false);
         setTimeLeft(0);
         if (testTimeoutRef.current) clearTimeout(testTimeoutRef.current);
         if (targetAnimationRef.current) cancelAnimationFrame(targetAnimationRef.current);
 
-
         setGazeHistory(currentGazeHistory => {
+            console.log('[EyeTrackingTest] Gaze history at stop:', currentGazeHistory); // DEBUG
             if (currentGazeHistory.length > 0) {
                 let totalDistance = 0, validPoints = 0;
                 currentGazeHistory.forEach(point => {
@@ -102,16 +104,17 @@ const EyeTrackingTest: React.FC = () => {
     }, []);
 
     const handleStartTest = () => {
-        // console.log("Starting Eye Tracking Test"); // DEBUG
+        console.log('[EyeTrackingTest] handleStartTest called'); // DEBUG
         setGazeHistory([]);
         setTestResults(null);
         setChartData(null);
-        setIsTestRunning(true);
+        setIsTestRunning(true); // This should trigger effects
         setTimeLeft(TEST_DURATION / 1000);
         testTimeoutRef.current = setTimeout(handleStopTest, TEST_DURATION);
     };
 
     const enableWebcam = async () => {
+        console.log('[EyeTrackingTest] enableWebcam called'); // DEBUG
         if (!landmarker || isWebcamEnabled) return;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
@@ -119,22 +122,23 @@ const EyeTrackingTest: React.FC = () => {
                 videoRef.current.srcObject = stream;
                 requestRef.current = requestAnimationFrame(predictWebcam);
                 setIsWebcamEnabled(true);
+                console.log('[EyeTrackingTest] Webcam enabled, predictWebcam loop started.'); // DEBUG
             }
         } catch (err) { console.error("Error accessing webcam:", err); }
     };
     
-    // Effect for animating the target
     useEffect(() => {
+        // console.log(`[EyeTrackingTest] Target animation effect. isTestRunning: ${isTestRunning}`); // DEBUG
         if (isTestRunning) {
             const animateTarget = () => {
-                const time = performance.now() / 3000; // Controls speed of target
-                setTargetPosition({ x: 0.5 + 0.35 * Math.cos(time), y: 0.5 + 0.35 * Math.sin(time) }); // Controls radius
+                const time = performance.now() / 3000;
+                setTargetPosition({ x: 0.5 + 0.35 * Math.cos(time), y: 0.5 + 0.35 * Math.sin(time) });
                 targetAnimationRef.current = requestAnimationFrame(animateTarget);
             };
-            targetAnimationRef.current = requestAnimationFrame(animateTarget); // Start animation
+            targetAnimationRef.current = requestAnimationFrame(animateTarget);
         } else {
             if (targetAnimationRef.current) {
-                cancelAnimationFrame(targetAnimationRef.current); // Stop animation when test is not running
+                cancelAnimationFrame(targetAnimationRef.current);
             }
         }
         return () => { 
@@ -142,19 +146,20 @@ const EyeTrackingTest: React.FC = () => {
         };
     }, [isTestRunning]);
 
-    // Effect for countdown timer
     useEffect(() => {
+        // console.log(`[EyeTrackingTest] Timer effect. isTestRunning: ${isTestRunning}, timeLeft: ${timeLeft}`); // DEBUG
         if (isTestRunning && timeLeft > 0) {
             const timerId = setInterval(() => setTimeLeft(prevTime => Math.max(0, prevTime - 1)), 1000);
             return () => clearInterval(timerId);
         } else if (isTestRunning && timeLeft === 0) {
+            console.log('[EyeTrackingTest] Timer reached 0, calling handleStopTest.'); // DEBUG
             handleStopTest();
         }
     }, [isTestRunning, timeLeft, handleStopTest]);
 
-    // Main cleanup effect
     useEffect(() => {
         return () => {
+            console.log('[EyeTrackingTest] Unmounting, cleaning up.'); // DEBUG
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
             if (testTimeoutRef.current) clearTimeout(testTimeoutRef.current);
             if (targetAnimationRef.current) cancelAnimationFrame(targetAnimationRef.current);
@@ -165,7 +170,6 @@ const EyeTrackingTest: React.FC = () => {
     }, []);
 
     return (
-        // JSX is the same as the last full version
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', width: '100%' }}>
             <div style={{ position: 'relative', width: '90vw', maxWidth: '640px', aspectRatio: '640 / 480', border: '2px solid #ccc', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
                 <video ref={videoRef} autoPlay playsInline style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
