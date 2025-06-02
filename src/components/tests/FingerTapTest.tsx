@@ -58,6 +58,7 @@ const FingerTapTest: React.FC = () => {
      */
     const predictWebcam = useCallback(() => {
         if (!videoRef.current || !canvasRef.current || !landmarker) {
+            requestRef.current = requestAnimationFrame(predictWebcam);
             return;
         }
 
@@ -71,29 +72,22 @@ const FingerTapTest: React.FC = () => {
             return;
         }
 
-        // Detect hands in the current video frame
         const results: HandLandmarkerResult = handLandmarker.detectForVideo(video, performance.now());
-
-        // Draw the landmarks on the canvas
         drawHandLandmarks(ctx, results, canvas.width, canvas.height);
 
-        // If the test is running, perform tap analysis
         if (isTestRunning && results.landmarks && results.landmarks.length > 0) {
-            const distance = calculateFingerTapDistance(results.landmarks[0]); // Analyze the first detected hand
-            
+            const distance = calculateFingerTapDistance(results.landmarks[0]);
             if (distance !== null) {
-                // Check if fingers are close enough to be considered a 'tap'
                 if (distance < TAP_THRESHOLD) {
                     if (!wasTapped) {
                         setTapTimestamps(prev => [...prev, performance.now()]);
-                        setWasTapped(true); // Mark as tapped to avoid double counting
+                        setWasTapped(true);
                     }
                 } else {
-                    setWasTapped(false); // Reset when fingers are apart
+                    setWasTapped(false);
                 }
             }
         }
-
         requestRef.current = requestAnimationFrame(predictWebcam);
     }, [landmarker, isTestRunning, wasTapped]);
 
@@ -104,7 +98,6 @@ const FingerTapTest: React.FC = () => {
         setTapTimestamps([]);
         setTestResults(null);
         setIsTestRunning(true);
-        // Optional: Add a timer for the test duration
     };
 
     /**
@@ -119,8 +112,6 @@ const FingerTapTest: React.FC = () => {
     };
 
     // --- Lifecycle Hooks ---
-
-    // Clean up the animation frame loop when the component unmounts
     useEffect(() => {
         return () => {
             if (requestRef.current) {
@@ -132,38 +123,24 @@ const FingerTapTest: React.FC = () => {
     // --- Rendered JSX ---
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
-            <div style={{ position: 'relative', width: VIDEO_WIDTH, height: VIDEO_HEIGHT, border: '2px solid #ccc', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', width: VIDEO_WIDTH, height: VIDEO_HEIGHT, border: '2px solid #ccc', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
                 <video ref={videoRef} autoPlay playsInline style={{ position: 'absolute', top: 0, left: 0, transform: 'scaleX(-1)', width: '100%', height: '100%' }} />
                 <canvas ref={canvasRef} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }} />
                 
                 <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10, background: 'rgba(255,255,255,0.8)', padding: '10px', borderRadius: '5px' }}>
                     <h3>Finger Tap Test</h3>
-                    {isLoading && <p>Loading Hand Model...</p>}
-                    
-                    {!isWebcamEnabled && (
-                        <button onClick={enableWebcam} disabled={isLoading}>
-                            Enable Webcam
-                        </button>
-                    )}
-                    
+                    {isLoading && <p>Loading Model...</p>}
+                    {!isWebcamEnabled && <button onClick={enableWebcam} disabled={isLoading}>Enable Webcam</button>}
                     {isWebcamEnabled && (
                         <>
-                            <button onClick={handleStartTest} disabled={isTestRunning}>
-                                Start Test
-                            </button>
-                            <button onClick={handleStopTest} disabled={!isTestRunning}>
-                                Stop Test
-                            </button>
+                            <button onClick={handleStartTest} disabled={isTestRunning}>Start Test</button>
+                            <button onClick={handleStopTest} disabled={!isTestRunning}>Stop Test</button>
                         </>
                     )}
-                    
                     {isTestRunning && <h2 style={{ margin: '10px 0 0 0', color: '#007aff' }}>Taps: {tapTimestamps.length}</h2>}
                 </div>
             </div>
-            
-            {testResults && (
-                <ResultsVisualization title="Finger Tap Results" data={testResults} />
-            )}
+            {testResults && <ResultsVisualization title="Finger Tap Results" data={testResults} />}
         </div>
     );
 };

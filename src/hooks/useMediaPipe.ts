@@ -8,7 +8,6 @@ import {
     NormalizedLandmark
 } from '@mediapipe/tasks-vision';
 
-// Define a type for the models we can create
 export type MediaPipeModel = 'face' | 'hand';
 
 const useMediaPipe = (modelType: MediaPipeModel) => {
@@ -21,9 +20,7 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
                 const vision = await FilesetResolver.forVisionTasks(
                     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
                 );
-
                 let newLandmarker: FaceLandmarker | HandLandmarker;
-
                 if (modelType === 'hand') {
                     newLandmarker = await HandLandmarker.createFromOptions(vision, {
                         baseOptions: {
@@ -33,14 +30,16 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
                         runningMode: "VIDEO",
                         numHands: 2
                     });
-                } else { // Default to face
+                } else {
                     newLandmarker = await FaceLandmarker.createFromOptions(vision, {
                         baseOptions: {
                             modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
                             delegate: "GPU"
                         },
                         runningMode: "VIDEO",
-                        numFaces: 1
+                        numFaces: 1,
+                        outputFaceBlendshapes: true,
+                        outputFacialTransformationMatrixes: true,
                     });
                 }
                 setLandmarker(newLandmarker);
@@ -50,7 +49,6 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
                 setIsLoading(false);
             }
         };
-
         createLandmarker();
     }, [modelType]);
 
@@ -59,8 +57,28 @@ const useMediaPipe = (modelType: MediaPipeModel) => {
 
 export default useMediaPipe;
 
-// We can keep drawing utilities here or move them to a dedicated file
-// For now, let's keep them for simplicity
+// FIX: Added the missing drawFaceLandmarks function
+export const drawFaceLandmarks = (
+    ctx: CanvasRenderingContext2D,
+    results: FaceLandmarkerResult,
+    canvasWidth: number,
+    canvasHeight: number
+) => {
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    if (results.faceLandmarks) {
+        results.faceLandmarks.forEach(landmarks => {
+            landmarks.forEach(landmark => {
+                const x = landmark.x * canvasWidth;
+                const y = landmark.y * canvasHeight;
+                ctx.beginPath();
+                ctx.arc(x, y, 1, 0, 2 * Math.PI);
+                ctx.fillStyle = 'aqua';
+                ctx.fill();
+            });
+        });
+    }
+};
+
 export const drawHandLandmarks = (
     ctx: CanvasRenderingContext2D,
     results: HandLandmarkerResult,
@@ -70,7 +88,6 @@ export const drawHandLandmarks = (
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     if (results.landmarks) {
         for (const landmarks of results.landmarks) {
-            // Here you can draw connectors and points
             landmarks.forEach(landmark => {
                 const x = landmark.x * canvasWidth;
                 const y = landmark.y * canvasHeight;
