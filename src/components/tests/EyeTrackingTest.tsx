@@ -12,8 +12,8 @@ const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 480;
 const TEST_DURATION = 10000; // 10 seconds
 
-interface GazeDataPoint { /* ...interface content... */ }
-interface GazeTestResults { /* ...interface content... */ }
+interface GazeDataPoint { timestamp: number; target: { x: number; y: number }; gaze: { x: number; y: number } | null; }
+interface GazeTestResults { trackingScore: number; pointsCollected: number; }
 
 const EyeTrackingTest: React.FC = () => {
     const { landmarker, isLoading } = useMediaPipe('face');
@@ -32,7 +32,7 @@ const EyeTrackingTest: React.FC = () => {
     
     const predictWebcam = useCallback(() => {
         if (!videoRef.current || !canvasRef.current || !landmarker || !videoRef.current.srcObject) {
-            requestRef.current = requestAnimationFrame(predictWebcam); // Keep trying if not ready
+            if (requestRef.current) requestRef.current = requestAnimationFrame(predictWebcam);
             return;
         }
         const faceLandmarker = landmarker as FaceLandmarker;
@@ -42,16 +42,13 @@ const EyeTrackingTest: React.FC = () => {
 
         if (video.readyState >= 2 && ctx) {
             const results: FaceLandmarkerResult = faceLandmarker.detectForVideo(video, performance.now());
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas for eye tracking
-            
-            // Draw target dot
             ctx.beginPath();
             ctx.arc(targetPosition.x * canvas.width, targetPosition.y * canvas.height, 15, 0, 2 * Math.PI);
             ctx.fillStyle = 'yellow';
             ctx.fill();
 
-            // Draw face landmarks and gaze dot
             if (results.faceLandmarks.length > 0) {
                 drawFaceLandmarks(ctx, results, canvas.width, canvas.height);
                 const gaze = calculateGazePosition(results.faceLandmarks[0]);
@@ -69,9 +66,46 @@ const EyeTrackingTest: React.FC = () => {
         requestRef.current = requestAnimationFrame(predictWebcam);
     }, [landmarker, isTestRunning, targetPosition]);
     
-    const handleStopTest = useCallback(() => { /* ...same as before... */ }, []);
+    const handleStopTest = useCallback(() => {
+        setIsTestRunning(false);
+        setTimeLeft(0);
+        if (testTimeoutRef.current) clearTimeout(testTimeoutRef.current);
 
-    const handleStartTest = () => { /* ...same as before... */ };
+        setGazeHistory(currentGazeHistory => {
+            if (currentGazeHistory.length > 0) {
+                let totalDistance = 0, validPoints = 0;
+                currentGazeHistory.forEach(point => {
+                    if (point.gaze) {
+                        totalDistance += Math.hypot(point.target.x - point.gaze.x, point.target.y - point.gaze.y);
+                        validPoints++;
+                    }
+                });
+                const averageError = validPoints > 0 ? totalDistance / validPoints : 0;
+                const trackingScore = Math.max(0, 100 - (averageError * 150));
+                setTestResults({ trackingScore: parseFloat(trackingScore.toFixed(2)), pointsCollected: validPoints });
+                
+                setChartData({
+                    datasets: [
+                        { label: 'Target Path', data: currentGazeHistory.map(p => ({ x: p.target.x, y: p.target.y })), borderColor: 'rgb(255, 204, 0)', backgroundColor: 'rgba(255, 204, 0, 0.1)', showLine: true, pointRadius: 1, tension: 0.1 },
+                        { label: 'Gaze Path', data: currentGazeHistory.map(p => p.gaze ? { x: p.gaze.x, y: p.gaze.y } : null).filter(p => p), borderColor: 'rgb(255, 0, 0)', backgroundColor: 'rgba(255, 0, 0, 0.1)', showLine: true, pointRadius: 1, tension: 0.1 },
+                    ],
+                });
+            } else {
+                setTestResults({ trackingScore: 0, pointsCollected: 0 });
+                setChartData(null);
+            }
+            return currentGazeHistory;
+        });
+    }, []);
+
+    const handleStartTest = () => {
+        setGazeHistory([]);
+        setTestResults(null);
+        setChartData(null);
+        setIsTestRunning(true);
+        setTimeLeft(TEST_DURATION / 1000);
+        testTimeoutRef.current = setTimeout(handleStopTest, TEST_DURATION);
+    };
 
     const enableWebcam = async () => {
         if (!landmarker || isWebcamEnabled) return;
@@ -79,7 +113,6 @@ const EyeTrackingTest: React.FC = () => {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                // Start predictWebcam loop immediately after stream is assigned
                 requestRef.current = requestAnimationFrame(predictWebcam);
                 setIsWebcamEnabled(true);
             }
@@ -88,8 +121,30 @@ const EyeTrackingTest: React.FC = () => {
         }
     };
     
-    useEffect(() => { /* ...same target animation effect... */ }, [isTestRunning]);
-    useEffect(() => { /* ...same timer effect... */ }, [isTestRunning, timeLeft]);
+    useEffect(() => {
+        let animationFrameId: number;
+        if (isTestRunning) {
+            const animateTarget = () => {
+                const time = performance.now() / 3000;
+                setTargetPosition({ x: 0.5 + 0.4 * Math.cos(time), y: 0.5 + 0.4 * Math.sin(time) });
+                animationFrameId = requestAnimationFrame(animateTarget);
+            };
+            animateTarget();
+        }
+        return () => { cancelAnimationFrame(animationFrameId) };
+    }, [isTestRunning]);
+
+    useEffect(() => {
+        if (isTestRunning && timeLeft > 0) {
+            const timerId = setInterval(() => {
+                setTimeLeft(prevTime => Math.max(0, prevTime - 1));
+            }, 1000);
+            return () => clearInterval(timerId);
+        } else if (isTestRunning && timeLeft === 0) {
+            handleStopTest(); // Ensure test stops if timer reaches 0
+        }
+    }, [isTestRunning, timeLeft, handleStopTest]);
+
     useEffect(() => {
         return () => {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
@@ -110,12 +165,20 @@ const EyeTrackingTest: React.FC = () => {
                 </div>
             </div>
             <div className="card" style={{padding: '1rem'}}>
-                <p>Follow the yellow dot with your eyes while keeping your head still.</p>
+                <p>Follow the yellow dot with your eyes while keeping your head still for 10 seconds.</p>
                 {!isWebcamEnabled && <button className="primary-button" onClick={enableWebcam} disabled={isLoading}>{isLoading ? "Loading Model..." : "Enable Webcam"}</button>}
                 {isWebcamEnabled && !isTestRunning && <button className="primary-button" onClick={handleStartTest}>Start 10 Second Test</button>}
                 {isTestRunning && <p>Test in progress...</p>}
             </div>
-            {testResults && chartData && ( /* ...results and chart JSX... */ )}
+            {testResults && chartData && (
+                <div style={{ display: 'flex', gap: '2rem', width: '90%', maxWidth: '1000px', alignItems: 'stretch' }}>
+                    <ResultsVisualization title="Eye Tracking Results" data={testResults} />
+                    <div className="card" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <h3>Gaze vs Target Path</h3>
+                        <Line data={chartData} options={{ scales: { x: { type: 'linear', min: 0, max: 1, ticks:{display:false} }, y: { type: 'linear', min: 0, max: 1, ticks:{display:false} } }, animation: { duration: 0 } }}/>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

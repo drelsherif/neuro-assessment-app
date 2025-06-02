@@ -37,7 +37,7 @@ const FingerTapTest: React.FC = () => {
 
     const predictWebcam = useCallback(() => {
         if (!videoRef.current || !canvasRef.current || !landmarker || !videoRef.current.srcObject) {
-            requestRef.current = requestAnimationFrame(predictWebcam); // Keep trying if not ready
+            if (requestRef.current) requestRef.current = requestAnimationFrame(predictWebcam);
             return;
         }
         const handLandmarker = landmarker as HandLandmarker;
@@ -47,7 +47,7 @@ const FingerTapTest: React.FC = () => {
 
         if (video.readyState >= 2 && ctx) {
             const results: HandLandmarkerResult = handLandmarker.detectForVideo(video, performance.now());
-            drawHandLandmarks(ctx, results, canvas.width, canvas.height); // Draw hand landmarks
+            drawHandLandmarks(ctx, results, canvas.width, canvas.height);
 
             if (isTestRunning && results.landmarks && results.landmarks.length > 0) {
                 const distance = calculateFingerTapDistance(results.landmarks[0]);
@@ -66,9 +66,45 @@ const FingerTapTest: React.FC = () => {
         requestRef.current = requestAnimationFrame(predictWebcam);
     }, [landmarker, isTestRunning, wasTapped]);
 
-    const handleStopTest = useCallback(() => { /* ...same as before... */ }, []);
+    const handleStopTest = useCallback(() => {
+        setIsTestRunning(false);
+        setTimeLeft(0);
+        if (testTimeoutRef.current) clearTimeout(testTimeoutRef.current);
+
+        setTapTimestamps(currentTimestamps => {
+            if (currentTimestamps.length > 1) {
+                const analysis = analyzeTapData(currentTimestamps);
+                setTestResults(analysis);
+                
+                const intervals = [];
+                for (let i = 1; i < currentTimestamps.length; i++) {
+                    intervals.push(currentTimestamps[i] - currentTimestamps[i - 1]);
+                }
+                setChartData({
+                    labels: intervals.map((_, index) => `Interval ${index + 1}`),
+                    datasets: [{
+                        label: 'Time Between Taps (ms)',
+                        data: intervals,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                    }]
+                });
+            } else {
+                setTestResults({ totalTaps: currentTimestamps.length, tapsPerSecond: 0, averageTimeBetweenTaps: 0, consistency: 0 });
+                setChartData(null);
+            }
+            return currentTimestamps; // Return unchanged for setTapTimestamps if no analysis
+        });
+    }, []);
     
-    const handleStartTest = () => { /* ...same as before... */ };
+    const handleStartTest = () => {
+        setTapTimestamps([]);
+        setTestResults(null);
+        setChartData(null);
+        setIsTestRunning(true);
+        setTimeLeft(TEST_DURATION / 1000);
+        testTimeoutRef.current = setTimeout(handleStopTest, TEST_DURATION);
+    };
     
     const enableWebcam = async () => {
         if (!landmarker || isWebcamEnabled) return;
@@ -76,7 +112,6 @@ const FingerTapTest: React.FC = () => {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                // Start predictWebcam loop immediately after stream is assigned
                 requestRef.current = requestAnimationFrame(predictWebcam);
                 setIsWebcamEnabled(true);
             }
@@ -86,7 +121,16 @@ const FingerTapTest: React.FC = () => {
         }
     };
 
-    useEffect(() => { /* ...same timer effect... */ }, [isTestRunning, timeLeft]);
+    useEffect(() => {
+        if (isTestRunning && timeLeft > 0) {
+            const timerId = setInterval(() => {
+                setTimeLeft(prevTime => Math.max(0, prevTime - 1));
+            }, 1000);
+            return () => clearInterval(timerId);
+        } else if (isTestRunning && timeLeft === 0) {
+            handleStopTest(); // Ensure test stops if timer reaches 0
+        }
+    }, [isTestRunning, timeLeft, handleStopTest]);
     
     useEffect(() => {
         return () => {
@@ -109,11 +153,20 @@ const FingerTapTest: React.FC = () => {
                 {isTestRunning && <h2 style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 10, background: 'rgba(255,255,255,0.8)', padding: '10px', borderRadius: '5px' }}>Taps: {tapTimestamps.length}</h2>}
             </div>
             <div className="card" style={{padding: '1rem'}}>
+                <p>Tap your thumb and index finger together as quickly and consistently as you can for 10 seconds.</p>
                 {!isWebcamEnabled && <button className="primary-button" onClick={enableWebcam} disabled={isLoading}>{isLoading ? "Loading Model..." : "Enable Webcam"}</button>}
                 {isWebcamEnabled && !isTestRunning && <button className="primary-button" onClick={handleStartTest}>Start 10 Second Test</button>}
                 {isTestRunning && <p>Test in progress...</p>}
             </div>
-            {testResults && chartData && ( /* ...results and chart JSX... */ )}
+            {testResults && chartData && (
+                <div style={{ display: 'flex', gap: '2rem', width: '90%', maxWidth: '1000px', alignItems: 'stretch' }}>
+                    <ResultsVisualization title="Finger Tap Results" data={testResults} />
+                    <div className="card" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <h3>Rhythm Analysis</h3>
+                        <Line data={chartData} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
